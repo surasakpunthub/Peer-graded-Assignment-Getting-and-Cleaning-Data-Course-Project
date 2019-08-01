@@ -4,49 +4,85 @@ library(dplyr)
 # set dataset directory
 setwd("/Users/surasakpunthub/Desktop/Digital triz/R programing/Couse-3/W-4/Getting-and-Cleaning-Data-Week-4-Assignment--master/UCI HAR Dataset")
 
-# read train data 
-x_train   <- read.table("./train/X_train.txt")
-y_train   <- read.table("./train/Y_train.txt") 
-sub_train <- read.table("./train/subject_train.txt")
 
-# read test data 
-x_test   <- read.table("./test/X_test.txt")
-y_test   <- read.table("./test/Y_test.txt") 
-sub_test <- read.table("./test/subject_test.txt")
+# Reading trainings tables:
 
-# read features description 
-features <- read.table("./features.txt") 
-
-# read activity labels 
-activity_labels <- read.table("./activity_labels.txt") 
+x_train <- read.table("./train/X_train.txt")
+y_train <- read.table("./train/y_train.txt")
+subject_train <- read.table("./train/subject_train.txt")
 
 
 
-# merge of training and test sets
-x_total   <- rbind(x_train, x_test)
-y_total   <- rbind(y_train, y_test) 
-sub_total <- rbind(sub_train, sub_test) 
+# Reading testing tables:
+x_test <- read.table("./test/X_test.txt")
+y_test <- read.table("./test/y_test.txt")
+subject_test <- read.table("./test/subject_test.txt")
 
-# keep only measurements for mean and standard deviation 
-sel_features <- variable_names[grep(".*mean\\(\\)|std\\(\\)", features[,2], ignore.case = FALSE),]
-x_total      <- x_total[,sel_features[,1]]
+# Reading feature vector:
+features <- read.table('./features.txt')
 
-# name columns
-colnames(x_total)   <- sel_features[,2]
-colnames(y_total)   <- "activity"
-colnames(sub_total) <- "subject"
+# Reading activity labels:
+activityLabels = read.table('./activity_labels.txt')
 
-# merge final dataset
-total <- cbind(sub_total, y_total, x_total)
+# Assigning column names:
 
-# turn activities & subjects into factors 
-total$activity <- factor(total$activity, levels = activity_labels[,1], labels = activity_labels[,2]) 
-total$subject  <- as.factor(total$subject) 
+colnames(x_train) <- features[,2]
+colnames(y_train) <-"activityId"
+colnames(subject_train) <- "subjectId"
 
-# create a summary independent tidy dataset from final dataset 
-# with the average of each variable for each activity and each subject. 
-total_mean <- total %>% group_by(activity, subject) %>% summarize_all(funs(mean)) 
+colnames(x_test) <- features[,2] 
+colnames(y_test) <- "activityId"
+colnames(subject_test) <- "subjectId"
 
-# export summary dataset
-write.table(total_mean, file = "./tidy-data.txt", row.names = FALSE, col.names = TRUE) 
+colnames(activityLabels) <- c('activityId','activityType')
 
+# Merging all data in one set:
+
+mrg_train <- cbind(y_train, subject_train, x_train)
+mrg_test <- cbind(y_test, subject_test, x_test)
+setAllInOne <- rbind(mrg_train, mrg_test)
+
+#dim(setAllInOne)
+#[1] 10299   563
+
+
+# Extracts only the measurements on the mean and standard deviation for each measurement.
+
+
+# Reading column names:
+
+colNames <- colnames(setAllInOne)
+
+# Create vector for defining ID, mean and standard deviation:
+
+mean_and_std <- (grepl("activityId" , colNames) | 
+                   grepl("subjectId" , colNames) | 
+                   grepl("mean.." , colNames) | 
+                   grepl("std.." , colNames) 
+)
+
+# Making nessesary subset from setAllInOne:
+
+setForMeanAndStd <- setAllInOne[ , mean_and_std == TRUE]
+
+# Uses descriptive activity names to name the activities in the data set
+
+
+setWithActivityNames <- merge(setForMeanAndStd, activityLabels,
+                              by='activityId',
+                              all.x=TRUE)
+
+
+# Appropriately labels the data set with descriptive variable names.
+
+# From the data set in step 4, creates a second, independent tidy data set with the average of each variable for each activity and each subject.
+
+
+# Making a second tidy data set
+
+secTidySet <- aggregate(. ~subjectId + activityId, setWithActivityNames, mean)
+secTidySet <- secTidySet[order(secTidySet$subjectId, secTidySet$activityId),]
+
+# Writing second tidy data set in txt file
+
+write.table(secTidySet, "Tidy-Data.txt", row.name=FALSE)
